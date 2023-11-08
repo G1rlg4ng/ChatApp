@@ -6,6 +6,8 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = "mypassword" # For securely signing session cookies
 socketio = SocketIO(app) # Allows you to use WebSocket functionality in the Flask application.
 
+debug = True
+
 # A mock database to persist data
 rooms = {}
 
@@ -71,7 +73,7 @@ def handle_connect():
     join_room(room)
     send({
         "sender": "",
-        "message":f"{name} has entered the chat"
+        "message":f"{name} has entered the room"
     }, to=room)
     rooms[room]["members"] += 1
     
@@ -84,12 +86,32 @@ def handle_message(payload):
         return
     
     message = {
+        "message_id": len(rooms[room]['messages']) + 1,
         "sender": name,
         "message": payload["message"]
     }
     send(message, to=room)
     rooms[room]["messages"].append(message)
     
+@socketio.on('delete_message')
+def handle_delete_message(payload):
+    room = session.get('room')
+    name = session.get('name')
+    message_id = payload("message_id")
+    
+    if room not in rooms:
+        return
+    
+    for message in rooms[room]["messages"]:
+        if message["message_id"] == message_id:
+            if message["sender"] == name:
+                rooms[room]["messages"].remove[message]
+                send({
+                    "message_id": message_id
+                }, to=room)
+                return
+    
+
 @socketio.on('disconnect')
 def handle_disconect():
     room = session.get('room')
@@ -106,4 +128,5 @@ def handle_disconect():
     }, to=room)
     
 if __name__ == "__main__":
-    socketio.run(app, debug=True) # Run Flask App with SocketIO support
+    socketio.run(app) # Run Flask App with SocketIO support
+    
